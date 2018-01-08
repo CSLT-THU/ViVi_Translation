@@ -1,0 +1,5 @@
+*.pyc
+.idea/
+translate.ckpt-*
+res
+.DS_Store
