@@ -20,7 +20,6 @@ from __future__ import division
 from __future__ import print_function
 
 import random
-
 import numpy as np
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
@@ -28,7 +27,6 @@ from tensorflow.python.ops import nn_ops
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import math_ops
 
-# from tensorflow.models.rnn.translate import data_utils
 import rnn_cell
 import data_utils
 import seq2seq_fy
@@ -52,12 +50,10 @@ class Seq2SeqModel(object):
     """
 
     def __init__(self, source_vocab_size, target_vocab_size, buckets,
-                 hidden_edim, hidden_units,
-                 num_layers, max_gradient_norm, batch_size, learning_rate,
-                 learning_rate_decay_factor,
-                 beam_size,
-                 use_lstm=False,
-                 num_samples=10240, forward_only=False):
+                 hidden_edim, hidden_units, num_layers, keep_prob,
+                 max_gradient_norm, batch_size, learning_rate,
+                 learning_rate_decay_factor, beam_size,
+                 use_lstm=False, forward_only=False):
         """Create the model.
 
         Args:
@@ -79,7 +75,6 @@ class Seq2SeqModel(object):
           learning_rate: learning rate to start with.
           learning_rate_decay_factor: decay learning rate by this much when needed.
           use_lstm: if true, we use LSTM cells instead of GRU cells.
-          num_samples: number of samples for sampled softmax.
           forward_only: if set, we do not construct the backward pass in the model.
         """
         self.source_vocab_size = source_vocab_size
@@ -110,7 +105,7 @@ class Seq2SeqModel(object):
         if num_layers > 1:
             cell = rnn_cell.MultiRNNCell([single_cell] * num_layers)
         if not forward_only:
-            cell = rnn_cell.DropoutWrapper(cell, input_keep_prob=0.8, seed=SEED)
+            cell = rnn_cell.DropoutWrapper(cell, input_keep_prob=keep_prob, seed=SEED)
 
         # The seq2seq function: we use embedding for the input and attention.
         def seq2seq_f(encoder_inputs, encoder_mask, decoder_inputs, do_decode):
@@ -171,11 +166,6 @@ class Seq2SeqModel(object):
                 self.gradient_norms.append(norm)
                 self.updates.append(opt.apply_gradients(
                         zip(clipped_gradients, params_to_update), global_step=self.global_step))
-
-        # params_to_load = [p for p in tf.all_variables() if p.name not in [
-        #     u'embedding_attention_seq2seq/embedding:0',
-        #     u'embedding_attention_seq2seq/embedding_attention_decoder/embedding:0'
-        # ]]
 
         self.saver = tf.train.Saver(tf.all_variables(), max_to_keep=1000,
                                     keep_checkpoint_every_n_hours=6)

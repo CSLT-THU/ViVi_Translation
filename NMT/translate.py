@@ -56,18 +56,15 @@ tf.app.flags.DEFINE_integer("batch_size", 80,
 tf.app.flags.DEFINE_integer("hidden_units", 1000, "Size of hidden units for each layer.")
 tf.app.flags.DEFINE_integer("hidden_edim", 500, "the dimension of word embedding.")
 tf.app.flags.DEFINE_integer("num_layers", 1, "Number of layers in the model.")
+tf.app.flags.DEFINE_integer("keep_prob", 0.8, "The keep probability used for dropout.")
 tf.app.flags.DEFINE_integer("src_vocab_size", 30000, "source vocabulary size.")
 tf.app.flags.DEFINE_integer("trg_vocab_size", 30000, "target vocabulary size.")
 tf.app.flags.DEFINE_string("data_dir", "../zh_uy_data", "Data directory")
 tf.app.flags.DEFINE_string("train_dir", "./train", "Training directory.")
-tf.app.flags.DEFINE_integer("max_train_data_size", 0,
-                            "Limit on the size of training data (0: no limit).")
 tf.app.flags.DEFINE_integer("steps_per_checkpoint", 1000,
                             "How many training steps to do per checkpoint.")
 tf.app.flags.DEFINE_boolean("decode", False,
                             "Set to True for interactive decoding.")
-tf.app.flags.DEFINE_boolean("self_test", False,
-                            "Run a self-test if this is set to True.")
 tf.app.flags.DEFINE_string("model", "ckpt", "the checkpoint model to load")
 tf.app.flags.DEFINE_integer("beam_size", 5,
                             "The size of beam search. Do greedy search when set this to 1.")
@@ -127,7 +124,7 @@ def create_model(session,
     model = seq2seq_model.Seq2SeqModel(
             FLAGS.src_vocab_size, FLAGS.trg_vocab_size, _buckets,
             FLAGS.hidden_edim, FLAGS.hidden_units,
-            FLAGS.num_layers, FLAGS.max_gradient_norm, FLAGS.batch_size,
+            FLAGS.num_layers, FLAGS.keep_prob, FLAGS.max_gradient_norm, FLAGS.batch_size,
             FLAGS.learning_rate, FLAGS.learning_rate_decay_factor,
             FLAGS.beam_size,
             forward_only=forward_only)

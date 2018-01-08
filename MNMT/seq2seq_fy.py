@@ -629,13 +629,6 @@ def sequence_loss_by_example(logits, logits_mem, targets, weights, aligns_mem, d
                                                                           decoder_align_weights):
             crossent = -1.0 * math_ops.reduce_sum(decoder_align * math_ops.log(tf.clip_by_value(align_mem, 1e-10, 1.0)),
                                                   [1])
-            # for logit, target, weight in zip(logits, targets, weights):
-            #     if softmax_loss_function is None:
-            #         target = array_ops.reshape(target, [-1])
-            #         crossent = nn_ops.sparse_softmax_cross_entropy_with_logits(
-            #                 logit, target)
-            #     else:
-            #         crossent = softmax_loss_function(logit, target)
             log_perp_list.append(crossent * weight * decoder_align_weight)
         log_perps = math_ops.add_n(log_perp_list)
         if average_across_timesteps:

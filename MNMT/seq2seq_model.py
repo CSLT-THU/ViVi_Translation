@@ -52,12 +52,10 @@ class Seq2SeqModel(object):
     """
 
     def __init__(self, source_vocab_size, target_vocab_size, buckets,
-                 hidden_edim, hidden_units,
-                 num_layers, max_gradient_norm, batch_size, learning_rate,
-                 learning_rate_decay_factor,
-                 beam_size,
-                 use_lstm=False,
-                 num_samples=10240, forward_only=False):
+                 hidden_edim, hidden_units, num_layers, keep_prob,
+                 max_gradient_norm, batch_size,learning_rate,
+                 learning_rate_decay_factor, beam_size,
+                 use_lstm=False, forward_only=False):
         """Create the model.
 
         Args:
@@ -110,7 +108,7 @@ class Seq2SeqModel(object):
         if num_layers > 1:
             cell = rnn_cell.MultiRNNCell([single_cell] * num_layers)
         if not forward_only:
-            cell = rnn_cell.DropoutWrapper(cell, input_keep_prob=0.8, seed=SEED)
+            cell = rnn_cell.DropoutWrapper(cell, input_keep_prob=keep_prob, seed=SEED)
 
         # The seq2seq function: we use embedding for the input and attention.
         def seq2seq_f(encoder_inputs, encoder_mask, encoder_probs, encoder_ids, encoder_hs, mem_mask, decoder_inputs,
