@@ -89,10 +89,10 @@ Model parameters and training settings can be set by command-line arguments, as 
 --steps_per_checkpoint: How many training steps to do per checkpoint, default is 1000.
 ```
 
-Note that, we provide a sampled Chinese-Uygchur dataset in './zh_uy_data', with 3000 sentences in training set, 
+Note that, we provide a sampled Chinese-Uyghur dataset in './zh_uy_data', with 3000 sentences in training set, 
 1985 sentences in development set, and another 992 sentences in testing set. 
 
-To download the complete data, please refer to [Chinese-Uygchur Dataset from Xingjiang University]().
+To download the complete data, please refer to [Chinese-Uyghur Dataset]().
 
 #### MNMT
 To train the MNMT model, a NMT model need to be trained first. Assume we already have a trained NMT model "translate.ckpt-orig" in "./train_mem", 
@@ -130,7 +130,7 @@ python ./translate.py --model translate.ckpt-10000 --decode --beam_size 12 < dat
 perl ./multi-bleu.perl data/test.trg < test.trans
 ```
 
-In "test_trained_model.sh", we give the testing of a trained model on the complete [Chinese-Uygchur Dataset from Xingjiang University](). 
+In "test_trained_model.sh", we give the testing of a trained model on the complete [Chinese-Uyghur Dataset](). 
 You can directly run "sh test_trained_model.sh" to test the performance of a trained model "translate.ckpt-376000-35.24":
 
 ```
@@ -161,7 +161,7 @@ python ./translate.py --model2 translate.ckpt-10000 --decode --beam_size 12 < ..
 perl ./multi-bleu.perl ../zh_uy_data/test.trg < res
 ```
   
-In "test_trained_model.sh", we give the testing of a trained model on the complete [Chinese-Uygchur Dataset from Xingjiang University](). 
+In "test_trained_model.sh", we give the testing of a trained model on the complete [Chinese-Uyghur Dataset](). 
 You can directly run "sh test_trained_model.sh" to test the performance of a trained model "translate.ckpt-155000-36.88":
 
 ```
@@ -183,6 +183,49 @@ Model parameters should be the same settings when training, and other parameters
 --beam_size: The size of beam search, default is 5.
 ```
 
+### Apply to other datasets
+#### NMT
+To apply the NMT model to other datasets is easy. You only need to format your own data as the data in "./zh_uy_data". 
+
+You may need to change default settings accorddingly.
+
+#### MNMT
+To apply the MNMT model to other datasets needs more operations. 
+
+Centainly, you first need to format your own data as the data in "./zh_uy_data". 
+
+You may note there is an "aligns.sample" file in "./zh_uy_data". It is the word aligments of "train.sample" data.
+If you download the complete [Chinese-Uyghur Dataset](), you can get the complete "aligns" on the whole training set. 
+So, after you prepared your own data, you also need to get the "aligns" of the training set. 
+You can get it via [Giza++](https://github.com/moses-smt/giza-pp) or other toolkits. 
+
+After you got "aligns", you can resort to "mem.py" in "./MNMT" to generate the "mems2t.pkl" and "memt2s.pkl". 
+These two files will be used in the training of MNMT.
+
+"mems2t.pkl" is the mappings from source words to target words. 
+For example, the following shows a list of target words for a source word (source word id = 10). 
+Each item in the list is (target word id, probablity). The probability is the probablity of translating the source word into the target word. 
+The list is decending sorted by the probability.
+
+```
+>>> f = open("mems2t.pkl", 'rb')
+>>> mem = pkl.load(f)
+>>> mem[10][:10]
+[(804, 0.020487682252388135), (57, 0.01282051282051282), (8, 0.01124937154348919), (50, 0.009112619406737054), (311, 0.008861236802413273), (511, 0.008735545500251383), (77, 0.008169934640522876), (951, 0.007101558572146807), (2050, 0.006598793363499246), (156, 0.00641025641025641)]
+```
+
+"memt2s.pkl" is the mappings from target words to source words.
+For example, the following shows a map of source words for a target word (target word id = 10). 
+Each item in the map is "source word id: probablity". The probability is the probablity of translating the target word into the source word. 
+```
+>>> f = open("memt2s.pkl", 'rb')
+>>> mem = pkl.load(f)
+>>> mem[10]
+{28677: 0.0002770850651149903, 6: 0.0002770850651149903, 7: 9.236168837166343e-05, 10: 0.001293063637203288, 12: 9.236168837166343e-05,...}
+```
+
+Actually, "mems2t.pkl" and "memt2s.pkl" do not need to be generated from training set and alings. It can be derived from any source-to-target dictionary. 
+As long as these two files are formatted same as the descriptions above, our model can perform accordingly
 
 ## License
 Open source licensing is under the Apache License 2.0, which allows free use for research purposes. For commercial licensing, please email byryuer@gmail.com.
