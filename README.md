@@ -66,17 +66,50 @@ I tensorflow/stream_executor/dso_loader.cc:108] successfully opened CUDA library
 ```
 git clone https://github.com/CSLT-THU/ViVi_Translation.git
 cd ViVi_Translation
-
+sh prepare.sh    
 ```
+
+To train a NMT model:
+```
+sh run.sh nmt train
+```
+
+To test a trained NMT model:
+```
+sh run.sh nmt test
+
+[zhangsy@wolf08 ViVi_Translation]$ sh run.sh nmt test
+.......
+Reading model parameters from ./train/translate.ckpt-nmt
+I tensorflow/core/common_runtime/gpu/pool_allocator.cc:244] PoolAllocator: After 41295 get requests, put_count=41280 evicted_count=1000 eviction_rate=0.0242248 and unsatisfied allocation rate=0.0270008
+I tensorflow/core/common_runtime/gpu/pool_allocator.cc:256] Raising pool_size_limit_ from 100 to 110
+BLEU = 35.24, 57.7/39.8/31.9/27.0 (BP=0.939, ratio=0.941, hyp_len=14535, ref_len=15446)
+```
+
+To train a MNMT model:
+```
+sh run.sh mnmt train
+```
+
+To test a trained MNMT model:
+```
+sh run.sh mnmt test
+
+[zhangsy@wolf08 ViVi_Translation]$ sh run.sh mnmt test
+......
+Reading model parameters from ./train_mem/translate.ckpt-nmt and ./train_mem/translate.ckpt-mnmt
+I tensorflow/core/common_runtime/gpu/pool_allocator.cc:244] PoolAllocator: After 46089 get requests, put_count=46012 evicted_count=1000 eviction_rate=0.0217335 and unsatisfied allocation rate=0.0255375
+I tensorflow/core/common_runtime/gpu/pool_allocator.cc:256] Raising pool_size_limit_ from 100 to 110
+BLEU = 36.88, 58.8/40.8/32.4/27.1 (BP=0.968, ratio=0.968, hyp_len=14957, ref_len=15446)
+```
+
 
 ### Train
 
 #### NMT
 
-To train the NMT model, run "translate.py" or "train.sh" directly with default settings.
-
 ```
-python translate.py 
+python NMT/translate.py 
 ```
 
 Model parameters and training settings can be set by command-line arguments, as follows:
@@ -92,22 +125,17 @@ Model parameters and training settings can be set by command-line arguments, as 
 --keep_prob: The keep probability used for dropout, default is 0.8.
 --src_vocab_size: Vocabulary size of source language, default is 30000.
 --trg_vocab_size: Vocabulary size of target language, default is 30000.
---data_dir: Data directory, default is '../zh_uy_data'. 
---train_dir: Training directory, default is './train/.
+--data_dir: Data directory, default is './data'. 
+--train_dir: Training directory, default is './NMT/train/.
 --steps_per_checkpoint: How many training steps to do per checkpoint, default is 1000.
 ```
 
-Note that, we provide a sampled Chinese-Uyghur dataset in './zh_uy_data', with 3000 sentences in training set, 
-1985 sentences in development set, and another 992 sentences in testing set. 
-
-To download the complete data, please refer to [UYCH180](http://data.cslt.org/uych180/README.html).
 
 #### MNMT
-To train the MNMT model, a NMT model need to be trained first. Assume we already have a trained NMT model "translate.ckpt-orig" in "./train_mem", 
-then run "translate.py" or "train.sh" directly with default settings.
+To train the MNMT model, a NMT model need to be trained first. Assume we already have a trained NMT model "translate.ckpt-nmt" in "./MNMT/train"
 
 ```
-python translate.py 
+python MNMT/translate.py 
 ```
 
 Model parameters and training settings can be set by command-line arguments, as follows:
@@ -123,34 +151,20 @@ Model parameters and training settings can be set by command-line arguments, as 
 --keep_prob: The keep probability used for dropout, default is 0.8.
 --src_vocab_size: Vocabulary size of source language, default is 30000.
 --trg_vocab_size: Vocabulary size of target language, default is 30000.
---data_dir: Data directory, default is '../zh_uy_data'. 
---train_dir: Training directory, default is './train_mem/.
+--data_dir: Data directory, default is './data'. 
+--train_dir: Training directory, default is './MNMT/train.
 --model: The trained NMT model to load.
 --steps_per_checkpoint: How many training steps to do per checkpoint, default is 1000.
 ```
 
 ### Test
 #### NMT
-To test a trained NMT model, for example, to test the 10000th checkpoint, run the command below.
+To test the 10000th checkpoint, run the command below.
 
 ```
-python ./translate.py --model translate.ckpt-10000 --decode --beam_size 12 < data/test.src > test.trans
-perl ./multi-bleu.perl data/test.trg < test.trans
+python ./NMT/translate.py --model translate.ckpt-10000  --decode --beam_size 12 < ./data/test.src > res
+perl multi-bleu.perl ./data/test.trg < res
 ```
-
-In "test_trained_model.sh", we give the testing of a trained model on the complete [UYCH180](http://data.cslt.org/uych180/README.html). 
-You can directly run "sh test_trained_model.sh" to test the performance of a trained model "translate.ckpt-376000-35.24":
-
-```
-[zhangsy@wolf08 NMT]$ sh test_trained_model.sh 
-.......
-Reading model parameters from ./train/translate.ckpt-376000-35.24
-I tensorflow/core/common_runtime/gpu/pool_allocator.cc:244] PoolAllocator: After 41295 get requests, put_count=41280 evicted_count=1000 eviction_rate=0.0242248 and unsatisfied allocation rate=0.0270008
-I tensorflow/core/common_runtime/gpu/pool_allocator.cc:256] Raising pool_size_limit_ from 100 to 110
-BLEU = 35.24, 57.7/39.8/31.9/27.0 (BP=0.939, ratio=0.941, hyp_len=14535, ref_len=15446)
-```
-
-In "test.sh", we give the script to test all the checkpoints saved during training.
 
 Model parameters should be the same settings when training, and other parameters for decoding are as follows.
 
@@ -160,28 +174,14 @@ Model parameters should be the same settings when training, and other parameters
 --beam_size: The size of beam search, default is 5.
 ```
 
+
 #### MNMT
-To test a trained MNMT model, for example, to test the 10000th checkpoint, run the command below. 
-Assume we already have a trained NMT model "translate.ckpt-orig" in "./train_mem". 
+To test the 10000th checkpoint, run the command below. 
 
 ```
-python ./translate.py --model2 translate.ckpt-10000 --decode --beam_size 12 < ../zh_uy_data/test.src > res
-perl ./multi-bleu.perl ../zh_uy_data/test.trg < res
+python ./MNMT/translate.py --model2 translate.ckpt-mnmt --decode --beam_size 12 < ./data/test.src > res
+perl multi-bleu.perl ./data/test.trg < res
 ```
-  
-In "test_trained_model.sh", we give the testing of a trained model on the complete [UYCH180](http://data.cslt.org/uych180/README.html). 
-You can directly run "sh test_trained_model.sh" to test the performance of a trained model "translate.ckpt-155000-36.88":
-
-```
-[zhangsy@wolf08 MNMT]$ sh test_trained_model.sh 
-......
-Reading model parameters from ./train_mem/translate.ckpt-orig and ./train_mem/translate.ckpt-155000-36.88
-I tensorflow/core/common_runtime/gpu/pool_allocator.cc:244] PoolAllocator: After 46089 get requests, put_count=46012 evicted_count=1000 eviction_rate=0.0217335 and unsatisfied allocation rate=0.0255375
-I tensorflow/core/common_runtime/gpu/pool_allocator.cc:256] Raising pool_size_limit_ from 100 to 110
-BLEU = 36.88, 58.8/40.8/32.4/27.1 (BP=0.968, ratio=0.968, hyp_len=14957, ref_len=15446)
-```
-
-In "test.sh", we give the script to test all the checkpoints saved during training.
 
 Model parameters should be the same settings when training, and other parameters for decoding are as follows.
 
@@ -193,7 +193,7 @@ Model parameters should be the same settings when training, and other parameters
 
 ### Apply to other datasets
 #### NMT
-To apply the NMT model to other datasets is easy. You only need to format your own data as the data in "./zh_uy_data". 
+To apply the NMT model to other datasets is easy. You only need to format your own data as the data in "./data". 
 
 You may need to change default settings accorddingly.
 

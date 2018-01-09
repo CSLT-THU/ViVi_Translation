@@ -17,3 +17,5 @@ tar -xzvf models.tgz
 echo "Downloading word alignment file..."
 wget http://data.cslt.org/uych180/aligns
 mv aligns data/
+mkdir MNMT/train
+mkdir NMT/train
