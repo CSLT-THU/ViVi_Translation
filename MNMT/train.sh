@@ -1,1 +1,0 @@
-python translate.py

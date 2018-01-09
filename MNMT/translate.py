@@ -40,7 +40,7 @@ from six.moves import xrange
 import tensorflow as tf
 import pickle as pkl
 
-sys.path.append("../zh_uy_data")
+sys.path.append("./zh_uy_data")
 import data_utils
 import seq2seq_model
 
@@ -57,13 +57,13 @@ tf.app.flags.DEFINE_integer("num_layers", 1, "Number of layers in the model.")
 tf.app.flags.DEFINE_integer("keep_prob", 0.8, "The keep probability used for dropout.")
 tf.app.flags.DEFINE_integer("src_vocab_size", 30000, "Source vocabulary size.")
 tf.app.flags.DEFINE_integer("trg_vocab_size", 30000, "Target vocabulary size.")
-tf.app.flags.DEFINE_string("data_dir", "../zh_uy_data", "Data directory")
-tf.app.flags.DEFINE_string("train_dir", "./train_mem", "Training directory.")
+tf.app.flags.DEFINE_string("data_dir", "./zh_uy_data", "Data directory")
+tf.app.flags.DEFINE_string("train_dir", "./MNMT/train", "Training directory.")
 tf.app.flags.DEFINE_integer("steps_per_checkpoint", 1000,
                             "How many training steps to do per checkpoint.")
 tf.app.flags.DEFINE_boolean("decode", False,
                             "Set to True for interactive decoding.")
-tf.app.flags.DEFINE_string("model", "translate.ckpt-orig", "The trained NMT model to load.")
+tf.app.flags.DEFINE_string("model", "translate.ckpt-nmt", "The trained NMT model to load.")
 tf.app.flags.DEFINE_string("model2", "", "the checkpoint mem model to load")
 tf.app.flags.DEFINE_integer("beam_size", 5,
                             "The size of beam search. Do greedy search when set this to 1.")
@@ -186,11 +186,11 @@ def train():
     if FLAGS.trg_vocab_size > len(trg_vocab):
         FLAGS.trg_vocab_size = len(trg_vocab)
 
-    f = open("mems2t.pkl", 'rb')
+    f = open("{}/mems2t.pkl".format(FLAGS.data_dir), 'rb')
     mems2t = pkl.load(f)
     f.close()
 
-    f = open("memt2s.pkl", 'rb')
+    f = open("{}/memt2s.pkl".format(FLAGS.data_dir), 'rb')
     memt2s = pkl.load(f)
     f.close()
 
@@ -287,11 +287,11 @@ def decode():
         if FLAGS.trg_vocab_size > len(trg_vocab):
             FLAGS.trg_vocab_size = len(trg_vocab)
 
-        f = open("mems2t.pkl", 'rb')
+        f = open("{}/mems2t.pkl".format(FLAGS.data_dir), 'rb')
         mems2t = pkl.load(f)
         f.close()
 
-        f = open("memt2s.pkl", 'rb')
+        f = open("{}/memt2s.pkl".format(FLAGS.data_dir), 'rb')
         memt2s = pkl.load(f)
         f.close()
 
