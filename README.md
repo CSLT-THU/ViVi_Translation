@@ -62,19 +62,19 @@ I tensorflow/stream_executor/dso_loader.cc:108] successfully opened CUDA library
 ```
 
 ### Quick Start
-
+Prepare:
 ```
 git clone https://github.com/CSLT-THU/ViVi_Translation.git
 cd ViVi_Translation
 sh prepare.sh    
 ```
 
-To train a NMT model:
+Train a NMT model:
 ```
 sh run.sh nmt train
 ```
 
-To test a trained NMT model:
+Test a trained NMT model:
 ```
 sh run.sh nmt test
 
@@ -87,12 +87,12 @@ I tensorflow/core/common_runtime/gpu/pool_allocator.cc:256] Raising pool_size_li
 BLEU = 35.24, 57.7/39.8/31.9/27.0 (BP=0.939, ratio=0.941, hyp_len=14535, ref_len=15446)
 ```
 
-To train a MNMT model:
+Train a MNMT model:
 ```
 sh run.sh mnmt train
 ```
 
-To test a trained MNMT model:
+Test a trained MNMT model:
 ```
 sh run.sh mnmt test
 
@@ -131,7 +131,6 @@ Model parameters and training settings can be set by command-line arguments, as 
 --train_dir: Training directory, default is './NMT/train/.
 --steps_per_checkpoint: How many training steps to do per checkpoint, default is 1000.
 ```
-
 
 #### MNMT
 To train the MNMT model, a NMT model need to be trained first. Assume we already have a trained NMT model "translate.ckpt-nmt" in "./MNMT/train"
@@ -175,7 +174,6 @@ Model parameters should be the same settings when training, and other parameters
 --model: The NMT model to load.
 --beam_size: The size of beam search, default is 5.
 ```
-
 
 #### MNMT
 To test the 10000th checkpoint, run the command below. 
