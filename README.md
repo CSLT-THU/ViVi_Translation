@@ -79,6 +79,7 @@ To test a trained NMT model:
 sh run.sh nmt test
 
 [zhangsy@wolf08 ViVi_Translation]$ sh run.sh nmt test
+Testing a NMT checkpoint 'translate.ckpt-nmt'...
 .......
 Reading model parameters from ./train/translate.ckpt-nmt
 I tensorflow/core/common_runtime/gpu/pool_allocator.cc:244] PoolAllocator: After 41295 get requests, put_count=41280 evicted_count=1000 eviction_rate=0.0242248 and unsatisfied allocation rate=0.0270008
@@ -96,6 +97,7 @@ To test a trained MNMT model:
 sh run.sh mnmt test
 
 [zhangsy@wolf08 ViVi_Translation]$ sh run.sh mnmt test
+Testing a MNMT checkpoint 'translate.ckpt-mnmt'...
 ......
 Reading model parameters from ./train_mem/translate.ckpt-nmt and ./train_mem/translate.ckpt-mnmt
 I tensorflow/core/common_runtime/gpu/pool_allocator.cc:244] PoolAllocator: After 46089 get requests, put_count=46012 evicted_count=1000 eviction_rate=0.0217335 and unsatisfied allocation rate=0.0255375
@@ -179,7 +181,7 @@ Model parameters should be the same settings when training, and other parameters
 To test the 10000th checkpoint, run the command below. 
 
 ```
-python ./MNMT/translate.py --model2 translate.ckpt-mnmt --decode --beam_size 12 < ./data/test.src > res
+python ./MNMT/translate.py --model2 translate.ckpt-10000 --decode --beam_size 12 < ./data/test.src > res
 perl multi-bleu.perl ./data/test.trg < res
 ```
 
@@ -195,20 +197,15 @@ Model parameters should be the same settings when training, and other parameters
 #### NMT
 To apply the NMT model to other datasets is easy. You only need to format your own data as the data in "./data". 
 
-You may need to change default settings accorddingly.
-
 #### MNMT
 To apply the MNMT model to other datasets needs more operations. 
 
-Centainly, you first need to format your own data as the data in "./zh_uy_data". 
+First, you also need to format your own data as the data in "./data". 
 
-You may note there is an "aligns.sample" file in "./zh_uy_data". It is the word aligments of "train.sample" data.
-If you download the complete [UYCH180](http://data.cslt.org/uych180/README.html), you can get the complete "aligns" on the whole training set. 
-So, after you prepared your own data, you also need to get the "aligns" of the training set. 
+Second, you need to acquire the word aligments between "train.src" and "train.trg", just as the downloaded "aligns" file.
 You can get it via [Giza++](https://github.com/moses-smt/giza-pp) or other toolkits. 
 
-After you got "aligns", you can resort to "mem.py" in "./MNMT" to generate the "mems2t.pkl" and "memt2s.pkl". 
-These two files will be used in the training of MNMT.
+Third, run "mem.py" to generate the "mems2t.pkl" and "memt2s.pkl". These two files will be used in the training of MNMT.
 
 "mems2t.pkl" is the mappings from source words to target words. 
 For example, the following shows a list of target words for a source word (source word id = 10). 
@@ -232,11 +229,13 @@ Each item in the map is "source word id: probablity". The probability is the pro
 {28677: 0.0002770850651149903, 6: 0.0002770850651149903, 7: 9.236168837166343e-05, 10: 0.001293063637203288, 12: 9.236168837166343e-05,...}
 ```
 
-Actually, "mems2t.pkl" and "memt2s.pkl" do not need to be generated from training set and alings. It can be derived from any source-to-target dictionary. 
-As long as these two files are formatted same as the descriptions above, our model can perform accordingly
+Note that "mems2t.pkl" and "memt2s.pkl" do not need to be generated from training set and alignments. 
+It can be derived from any source-to-target dictionary. 
+As long as these two files were formatted according to the descriptions above, our model could perform correctly.
 
 ## License
-Open source licensing is under the Apache License 2.0, which allows free use for research purposes. For commercial licensing, please email byryuer@gmail.com.
+Open source licensing is under the Apache License 2.0, which allows free use for research purposes. 
+For commercial licensing, please email byryuer@gmail.com.
 
 ## Development Team
 
@@ -247,6 +246,3 @@ Project members: Shiyue Zhang, Gulnigar Mahmut, Andi Zhang, Shipan Ren
 ## Contact
 
 If you have questions, suggestions and bug reports, please email [byryuer@gmail.com](mailto:byryuer@gmail.com).
-
-
-
