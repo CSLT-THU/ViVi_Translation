@@ -92,7 +92,7 @@ Model parameters and training settings can be set by command-line arguments, as 
 Note that, we provide a sampled Chinese-Uyghur dataset in './zh_uy_data', with 3000 sentences in training set, 
 1985 sentences in development set, and another 992 sentences in testing set. 
 
-To download the complete data, please refer to [Chinese-Uyghur Dataset]().
+To download the complete data, please refer to [UYCH180](http://data.cslt.org/uych180/README.html).
 
 #### MNMT
 To train the MNMT model, a NMT model need to be trained first. Assume we already have a trained NMT model "translate.ckpt-orig" in "./train_mem", 
@@ -130,7 +130,7 @@ python ./translate.py --model translate.ckpt-10000 --decode --beam_size 12 < dat
 perl ./multi-bleu.perl data/test.trg < test.trans
 ```
 
-In "test_trained_model.sh", we give the testing of a trained model on the complete [Chinese-Uyghur Dataset](). 
+In "test_trained_model.sh", we give the testing of a trained model on the complete [UYCH180](http://data.cslt.org/uych180/README.html). 
 You can directly run "sh test_trained_model.sh" to test the performance of a trained model "translate.ckpt-376000-35.24":
 
 ```
@@ -161,7 +161,7 @@ python ./translate.py --model2 translate.ckpt-10000 --decode --beam_size 12 < ..
 perl ./multi-bleu.perl ../zh_uy_data/test.trg < res
 ```
   
-In "test_trained_model.sh", we give the testing of a trained model on the complete [Chinese-Uyghur Dataset](). 
+In "test_trained_model.sh", we give the testing of a trained model on the complete [UYCH180](http://data.cslt.org/uych180/README.html). 
 You can directly run "sh test_trained_model.sh" to test the performance of a trained model "translate.ckpt-155000-36.88":
 
 ```
@@ -195,7 +195,7 @@ To apply the MNMT model to other datasets needs more operations.
 Centainly, you first need to format your own data as the data in "./zh_uy_data". 
 
 You may note there is an "aligns.sample" file in "./zh_uy_data". It is the word aligments of "train.sample" data.
-If you download the complete [Chinese-Uyghur Dataset](), you can get the complete "aligns" on the whole training set. 
+If you download the complete [UYCH180](http://data.cslt.org/uych180/README.html), you can get the complete "aligns" on the whole training set. 
 So, after you prepared your own data, you also need to get the "aligns" of the training set. 
 You can get it via [Giza++](https://github.com/moses-smt/giza-pp) or other toolkits. 
 
@@ -232,9 +232,9 @@ Open source licensing is under the Apache License 2.0, which allows free use for
 
 ## Development Team
 
-Project leaders: Dong Wang, Feng Yang
+Project leaders: Dong Wang, Feng Yang, Askar Hamdulla
 
-Project members: Shiyue Zhang, Jiyuan Zhang, Andi Zhang, Aodong Li, Shipan Ren
+Project members: Shiyue Zhang, Gulnigar Mahmut, Andi Zhang, Shipan Ren
 
 ## Contact
 
