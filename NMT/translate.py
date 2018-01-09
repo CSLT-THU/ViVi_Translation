@@ -37,7 +37,7 @@ import random
 import time
 
 import sys
-sys.path.append("./zh_uy_data")
+sys.path.append(".")
 
 import numpy as np
 from six.moves import xrange
@@ -59,7 +59,7 @@ tf.app.flags.DEFINE_integer("num_layers", 1, "Number of layers in the model.")
 tf.app.flags.DEFINE_integer("keep_prob", 0.8, "The keep probability used for dropout.")
 tf.app.flags.DEFINE_integer("src_vocab_size", 30000, "source vocabulary size.")
 tf.app.flags.DEFINE_integer("trg_vocab_size", 30000, "target vocabulary size.")
-tf.app.flags.DEFINE_string("data_dir", "./zh_uy_data", "Data directory")
+tf.app.flags.DEFINE_string("data_dir", "./data", "Data directory")
 tf.app.flags.DEFINE_string("train_dir", "./NMT/train", "Training directory.")
 tf.app.flags.DEFINE_integer("steps_per_checkpoint", 1000,
                             "How many training steps to do per checkpoint.")

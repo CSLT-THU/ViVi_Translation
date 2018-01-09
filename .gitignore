@@ -3,3 +3,4 @@
 translate.ckpt-*
 res
 .DS_Store
+*.html

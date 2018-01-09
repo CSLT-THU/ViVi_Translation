@@ -61,6 +61,14 @@ I tensorflow/stream_executor/dso_loader.cc:108] successfully opened CUDA library
 >>> 
 ```
 
+### Quick Start
+
+```
+git clone https://github.com/CSLT-THU/ViVi_Translation.git
+cd ViVi_Translation
+
+```
+
 ### Train
 
 #### NMT
