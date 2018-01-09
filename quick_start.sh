@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 wget http://data.cslt.org/uych180/zh_uy_data.tar.gz
 tar -xzvf zh_uy_data.tgz
 python ./zh_uy_data/data_utils.py
