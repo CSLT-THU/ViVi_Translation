@@ -121,6 +121,7 @@ class Seq2SeqModel(object):
                     num_decoder_symbols=target_vocab_size,
                     embedding_size=hidden_edim,
                     beam_size=beam_size,
+                    num_layers=num_layers,
                     feed_previous=do_decode)
 
         # Feeds for inputs.

@@ -46,6 +46,7 @@ import numpy as np
 from six.moves import xrange
 import tensorflow as tf
 import sys
+
 sys.path.append(".")
 import data_utils
 import seq2seq_model
@@ -57,9 +58,9 @@ tf.app.flags.DEFINE_float("max_gradient_norm", 1.0,
                           "Clip gradients to this norm.")
 tf.app.flags.DEFINE_integer("batch_size", 80,
                             "Batch size to use during training.")
-tf.app.flags.DEFINE_integer("hidden_units", 1000, "Size of hidden units for each layer.")
-tf.app.flags.DEFINE_integer("hidden_edim", 500, "the dimension of word embedding.")
-tf.app.flags.DEFINE_integer("num_layers", 1, "Number of layers in the model.")
+tf.app.flags.DEFINE_integer("hidden_units", 500, "Size of hidden units for each layer.")
+tf.app.flags.DEFINE_integer("hidden_edim", 250, "the dimension of word embedding.")
+tf.app.flags.DEFINE_integer("num_layers", 2, "Number of layers in the model.")
 tf.app.flags.DEFINE_integer("keep_prob", 0.8, "The keep probability used for dropout.")
 tf.app.flags.DEFINE_integer("src_vocab_size", 30000, "source vocabulary size.")
 tf.app.flags.DEFINE_integer("trg_vocab_size", 30000, "target vocabulary size.")
@@ -79,7 +80,11 @@ tf.set_random_seed(123)
 
 # We use a number of buckets and pad to the closest one for efficiency.
 # See seq2seq_model.Seq2SeqModel for details of how they work.
-_buckets = [(10, 10), (20, 20), (30, 30), (40, 40), (50, 50)]
+if FLAGS.decode:
+    # add one more bucket for longer sentences in testing set
+    _buckets = [(10, 10), (20, 20), (30, 30), (40, 40), (50, 50), (100, 100)]
+else:
+    _buckets = [(10, 10), (20, 20), (30, 30), (40, 40), (50, 50)]
 
 
 def read_data(source_path, target_path):
@@ -166,12 +171,8 @@ def train():
         print("Creating %d layers of %d units with word embedding %d."
               % (FLAGS.num_layers, FLAGS.hidden_units, FLAGS.hidden_edim))
         model = create_model(sess, False)
-
-        # Read data into buckets and compute their sizes.
-        print("Reading development and training data (limit: %d)."
-              % FLAGS.max_train_data_size)
-        dev_set = read_data(src_vocab, trg_vocab)
-        train_set = read_data(src_train, trg_train, FLAGS.max_train_data_size)
+        dev_set = read_data(src_dev, trg_dev)
+        train_set = read_data(src_train, trg_train)
         train_bucket_sizes = [len(train_set[b]) for b in xrange(len(_buckets))]
         train_total_size = float(sum(train_bucket_sizes))
 
@@ -234,14 +235,12 @@ def train():
 
 
 def decode():
-    # add one more bucket for longer sentences in testing set
-    _buckets = [(10, 10), (20, 20), (30, 30), (40, 40), (50, 50), (100, 100)]
     with tf.Session() as sess:
         # Load vocabularies.
         src_vocab_path = os.path.join(FLAGS.data_dir,
-                                     "vocab%d.src" % FLAGS.src_vocab_size)
+                                      "vocab%d.src" % FLAGS.src_vocab_size)
         trg_vocab_path = os.path.join(FLAGS.data_dir,
-                                     "vocab%d.trg" % FLAGS.trg_vocab_size)
+                                      "vocab%d.trg" % FLAGS.trg_vocab_size)
         src_vocab, rev_src_vocab = data_utils.initialize_vocabulary(src_vocab_path)
         trg_vocab, rev_trg_vocab = data_utils.initialize_vocabulary(trg_vocab_path)
 

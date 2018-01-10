@@ -100,7 +100,7 @@ def _extract_argmax_and_embed(embedding, num_symbols, update_embedding=True):
 
 
 def attention_decoder(encoder_mask, decoder_inputs, initial_state, attention_states, cell,
-                      beam_size, output_size=None, num_heads=1, loop_function=None,
+                      beam_size, output_size=None, num_heads=1, num_layers=1, loop_function=None,
                       dtype=dtypes.float32, scope=None, initial_state_attention=False):
     """RNN decoder with attention for the sequence-to-sequence model.
 
@@ -155,15 +155,16 @@ def attention_decoder(encoder_mask, decoder_inputs, initial_state, attention_sta
         batch_size = array_ops.shape(decoder_inputs[0])[0]  # Needed for reshaping.
         attn_length = attention_states.get_shape()[1].value
         attn_size = attention_states.get_shape()[2].value
+        state_size = initial_state.get_shape()[1].value
+        attention_vec_size = attn_size // 2  # Size of query vectors for attention.
 
         hidden = array_ops.reshape(attention_states, [-1, attn_length, 1, attn_size])
 
         hidden_features = []
         v = []
-        attention_vec_size = attn_size // 2  # Size of query vectors for attention.
 
         initial_state = math_ops.tanh(
-                linear(initial_state, attention_vec_size, False,
+                linear(initial_state, state_size, False,
                         weight_initializer=init_ops.random_normal_initializer(0, 0.01, seed=SEED)))
 
         with variable_scope.variable_scope(scope or "attention"):
@@ -200,14 +201,14 @@ def attention_decoder(encoder_mask, decoder_inputs, initial_state, attention_sta
                         s = math_ops.to_float(encoder_mask) * s
                         a = array_ops.transpose(array_ops.transpose(s) / math_ops.reduce_sum(s, [1]))
                         d = math_ops.reduce_sum(
-                                array_ops.reshape(a, [-1, attn_length, 1, 1]) * hidden,
-                                [1, 2])
+                                array_ops.reshape(a, [-1, attn_length, 1, 1]) * hidden, [1, 2])
                         ds.append(array_ops.reshape(d, [-1, attn_size]))
             return ds
 
         outputs = []
         output = None
         state = initial_state
+        out_state = array_ops.split(1, num_layers, state)[-1]
         prev = None
         symbols = []
         prev_probs = [0]
@@ -224,7 +225,7 @@ def attention_decoder(encoder_mask, decoder_inputs, initial_state, attention_sta
             if loop_function is not None and prev is not None:
                 with variable_scope.variable_scope("loop_function", reuse=True):
                     inp, prev_probs, index, prev_symbol = loop_function(prev, prev_probs, beam_size, i)
-                    state = array_ops.gather(state, index)  # update prev state
+                    out_state = array_ops.gather(out_state, index)  # update prev state
                     attns = [array_ops.gather(attn, index) for attn in attns]  # update prev attens
                     for j, output in enumerate(outputs):
                         outputs[j] = array_ops.gather(output, index)  # update prev outputs
@@ -239,14 +240,15 @@ def attention_decoder(encoder_mask, decoder_inputs, initial_state, attention_sta
 
             # Run the attention mechanism.
             if i > 0 or (i == 0 and initial_state_attention):
-                attns = attention(state, scope="attention")
+                attns = attention(out_state, scope="attention")
 
             # Run the RNN.
             cinp = array_ops.concat(1, [inp, attns[0]])
-            state, _ = cell(cinp, state)
+            # state, _ = cell(cinp, state)
+            out_state, state = cell(cinp, state)
 
             with variable_scope.variable_scope("AttnOutputProjection"):
-                output = linear([state] + [cinp], output_size, False)
+                output = linear([out_state] + [cinp], output_size, False)
                 output = array_ops.reshape(output, [-1, output_size // 2, 2])
                 output = math_ops.reduce_max(output, 2)  # maxout
 
@@ -257,7 +259,7 @@ def attention_decoder(encoder_mask, decoder_inputs, initial_state, attention_sta
         if loop_function is not None:
             # process the last symbol
             inp, prev_probs, index, prev_symbol = loop_function(prev, prev_probs, beam_size, i + 1)
-            state = array_ops.gather(state, index)  # update prev state
+            out_state = array_ops.gather(out_state, index)  # update prev state
             for j, output in enumerate(outputs):
                 outputs[j] = array_ops.gather(output, index)  # update prev outputs
             for j, symbol in enumerate(symbols):
@@ -267,6 +269,7 @@ def attention_decoder(encoder_mask, decoder_inputs, initial_state, attention_sta
             # output the final best result of beam search
             for k, symbol in enumerate(symbols):
                 symbols[k] = array_ops.gather(symbol, 0)
+            out_state = array_ops.expand_dims(array_ops.gather(out_state, 0), 0)
             state = array_ops.expand_dims(array_ops.gather(state, 0), 0)
             for j, output in enumerate(outputs):
                 outputs[j] = array_ops.expand_dims(array_ops.gather(output, 0), 0)  # update prev outputs
@@ -275,7 +278,7 @@ def attention_decoder(encoder_mask, decoder_inputs, initial_state, attention_sta
 
 def embedding_attention_decoder(encoder_mask, decoder_inputs, initial_state, attention_states,
                                 cell, num_symbols, embedding_size, beam_size, num_heads=1,
-                                output_size=None, feed_previous=False,
+                                output_size=None, num_layers=1, feed_previous=False,
                                 update_embedding_for_previous=True,
                                 dtype=dtypes.float32, scope=None,
                                 initial_state_attention=False):
@@ -323,17 +326,15 @@ def embedding_attention_decoder(encoder_mask, decoder_inputs, initial_state, att
         loop_function = _extract_argmax_and_embed(embedding, num_symbols,
                 update_embedding_for_previous) if feed_previous else None
         emb_inp = [embedding_ops.embedding_lookup(embedding, i) for i in decoder_inputs]
-        return attention_decoder(encoder_mask,
-                                 emb_inp, initial_state, attention_states, cell,
-                                 beam_size,
-                                 output_size=output_size,
-                                 num_heads=num_heads, loop_function=loop_function,
+        return attention_decoder(encoder_mask, emb_inp, initial_state, attention_states, cell,
+                                 beam_size, output_size=output_size,
+                                 num_layers=num_layers, num_heads=num_heads, loop_function=loop_function,
                                  initial_state_attention=initial_state_attention), tf.identity(embedding)
 
 
 def embedding_attention_seq2seq(encoder_inputs, encoder_mask, decoder_inputs, cell,
                                 num_encoder_symbols, num_decoder_symbols, embedding_size,
-                                beam_size, num_heads=1, feed_previous=False, dtype=dtypes.float32,
+                                beam_size, num_layers=1, num_heads=1, feed_previous=False, dtype=dtypes.float32,
                                 scope=None, initial_state_attention=True):
     """Embedding sequence-to-sequence model with attention.
 
@@ -393,7 +394,7 @@ def embedding_attention_seq2seq(encoder_inputs, encoder_mask, decoder_inputs, ce
 
         return embedding_attention_decoder(encoder_mask, decoder_inputs, encoder_state, attention_states, cell,
                                            num_decoder_symbols, embedding_size, beam_size=beam_size,
-                                           num_heads=num_heads, output_size=output_size,
+                                           num_heads=num_heads, output_size=output_size, num_layers=num_layers,
                                            feed_previous=feed_previous,
                                            initial_state_attention=initial_state_attention)
 
