@@ -12,20 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+# Copyright 2017, Center of Speech and Language of Tsinghua University.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
 
-"""Binary for training translation models and decoding from them.
+"""
+Binary for training translation models and decoding from them.
+Running this program without --decode will start training a model saving checkpoints to --train_dir.
+Running with --decode will start decoding the testing set using a trained model specified by --model.
 
-Running this program without --decode will download the WMT corpus into
-the directory specified as --data_dir and tokenize it in a very basic way,
-and then start training a model saving checkpoints to --train_dir.
-
-Running with --decode starts an interactive loop so you can see how
-the current checkpoint translates English sentences into French.
-
-See the following papers for more information on neural translation models.
- * http://arxiv.org/abs/1409.3215
+See the following paper for more information on neural translation model.
  * http://arxiv.org/abs/1409.0473
- * http://arxiv.org/abs/1412.2007
 """
 from __future__ import absolute_import
 from __future__ import division
@@ -33,16 +41,12 @@ from __future__ import print_function
 
 import math
 import os
-import random
 import time
-
-import sys
-sys.path.append(".")
-
 import numpy as np
 from six.moves import xrange
 import tensorflow as tf
-
+import sys
+sys.path.append(".")
 import data_utils
 import seq2seq_model
 
@@ -75,19 +79,17 @@ tf.set_random_seed(123)
 
 # We use a number of buckets and pad to the closest one for efficiency.
 # See seq2seq_model.Seq2SeqModel for details of how they work.
-_buckets = [(10, 10), (20, 20), (30, 30), (40, 40), (51, 51)]
+_buckets = [(10, 10), (20, 20), (30, 30), (40, 40), (50, 50)]
 
 
-def read_data(source_path, target_path, max_size=None):
+def read_data(source_path, target_path):
     """Read data from source and target files and put into buckets.
 
     Args:
       source_path: path to the files with token-ids for the source language.
       target_path: path to the file with token-ids for the target language;
         it must be aligned with the source file: n-th line contains the desired
-        output for n-th line from the source_path.
-      max_size: maximum number of lines to read, all other will be ignored;
-        if 0 or None, data files will be read completely (no limit).
+        output for n-th line from the source_path..
 
     Returns:
       data_set: a list of length len(_buckets); data_set[n] contains a list of
@@ -100,13 +102,13 @@ def read_data(source_path, target_path, max_size=None):
         with tf.gfile.GFile(target_path, mode="r") as target_file:
             source, target = source_file.readline(), target_file.readline()
             counter = 0
-            while source and target and (not max_size or counter < max_size):
+            while source and target:
                 counter += 1
                 if counter % 100000 == 0:
                     print("  reading data line %d" % counter)
                     sys.stdout.flush()
-                source_ids = [int(x) for x in source.split()][:51]
-                target_ids = [int(x) for x in target.split()][:51]
+                source_ids = [int(x) for x in source.split()]
+                target_ids = [int(x) for x in target.split()]
                 source_ids.append(data_utils.EOS_ID)
                 target_ids.append(data_utils.EOS_ID)
                 for bucket_id, (source_size, target_size) in enumerate(_buckets):
@@ -146,7 +148,7 @@ def create_model(session,
 
 
 def train():
-    """Train a en->fr translation model using WMT data."""
+    """Train a src->trg translation model."""
     print("Preparing training and dev data in %s" % FLAGS.data_dir)
     src_train, trg_train, src_dev, trg_dev, src_vocab_path, trg_vocab_path = data_utils.prepare_wmt_data(
             FLAGS.data_dir, FLAGS.src_vocab_size, FLAGS.trg_vocab_size)
@@ -219,23 +221,21 @@ def train():
                 model.saver.save(sess, checkpoint_path, global_step=model.global_step)
                 step_time, loss = 0.0, 0.0
                 # Run evals on development set and print their perplexity.
-                batch_size_tmp = model.batch_size
-                model.batch_size = 1
                 for bucket_id in xrange(len(_buckets)):
                     if len(dev_set[bucket_id]) == 0:
                         print("  eval: empty bucket %d" % (bucket_id))
                         continue
-                    encoder_inputs, encoder_mask, decoder_inputs, target_weights = model.get_batch(
-                            dev_set, bucket_id)
+                    encoder_inputs, encoder_mask, decoder_inputs, target_weights = model.get_batch(dev_set, bucket_id)
                     _, eval_loss, _ = model.step(sess, encoder_inputs, encoder_mask, decoder_inputs,
                                                  target_weights, bucket_id, True)
                     eval_ppx = math.exp(eval_loss) if eval_loss < 300 else float('inf')
-                    print("  eval: bucket %d perplexity %.2f" % (bucket_id, eval_ppx))  # annotated by yfeng
-                model.batch_size = batch_size_tmp
+                    print("  eval: bucket %d perplexity %.2f" % (bucket_id, eval_ppx))
                 sys.stdout.flush()
 
 
 def decode():
+    # add one more bucket for longer sentences in testing set
+    _buckets = [(10, 10), (20, 20), (30, 30), (40, 40), (50, 50), (100, 100)]
     with tf.Session() as sess:
         # Load vocabularies.
         src_vocab_path = os.path.join(FLAGS.data_dir,

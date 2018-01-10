@@ -12,7 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
+# Copyright 2017, Center of Speech and Language of Tsinghua University.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
 """Module for constructing RNN Cells.
 
 ## Base interface for all RNN Cells
@@ -60,6 +73,11 @@ from tensorflow.python.ops.math_ops import tanh
 
 from tensorflow.python.platform import tf_logging as logging
 from tensorflow.python.util import nest
+
+import tensorflow as tf
+import numpy as np
+SEED = 123
+np.random.seed(seed=SEED)
 
 
 def _state_size_with_prefix(state_size, prefix=None):
@@ -922,16 +940,9 @@ def _linear(args, output_size, bias, bias_start=0.0, scope=None):
     return res + bias_term
 
 
-SEED = 123
-
-import tensorflow as tf
-import numpy as np
-
-np.random.seed(seed=SEED)
-
-
 def orthogonal_initializer(shape=None, scale=1.0):
-    ''' From Lasagne and Keras. Reference: Saxe et al., http://arxiv.org/abs/1312.6120
+    '''
+    From Lasagne and Keras. Reference: Saxe et al., http://arxiv.org/abs/1312.6120
     '''
 
     # print('Warning -- You have opted to use the orthogonal_initializer function')
