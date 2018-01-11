@@ -58,9 +58,9 @@ tf.app.flags.DEFINE_float("max_gradient_norm", 1.0,
                           "Clip gradients to this norm.")
 tf.app.flags.DEFINE_integer("batch_size", 80,
                             "Batch size to use during training.")
-tf.app.flags.DEFINE_integer("hidden_units", 500, "Size of hidden units for each layer.")
-tf.app.flags.DEFINE_integer("hidden_edim", 250, "the dimension of word embedding.")
-tf.app.flags.DEFINE_integer("num_layers", 2, "Number of layers in the model.")
+tf.app.flags.DEFINE_integer("hidden_units", 1000, "Size of hidden units for each layer.")
+tf.app.flags.DEFINE_integer("hidden_edim", 500, "the dimension of word embedding.")
+tf.app.flags.DEFINE_integer("num_layers", 1, "Number of layers in the model.")
 tf.app.flags.DEFINE_integer("keep_prob", 0.8, "The keep probability used for dropout.")
 tf.app.flags.DEFINE_integer("src_vocab_size", 30000, "source vocabulary size.")
 tf.app.flags.DEFINE_integer("trg_vocab_size", 30000, "target vocabulary size.")

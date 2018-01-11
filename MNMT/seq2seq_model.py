@@ -26,7 +26,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Sequence-to-sequence model with an attention mechanism."""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -35,33 +34,23 @@ from __future__ import print_function
 import random
 
 import numpy as np
-from six.moves import xrange  # pylint: disable=redefined-builtin
+from six.moves import xrange
 import tensorflow as tf
 from tensorflow.python.ops import nn_ops
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import math_ops
 
-# from tensorflow.models.rnn.translate import data_utils
 import rnn_cell
 import data_utils
 import seq2seq_fy
 
 SEED = 123
 
-
 class Seq2SeqModel(object):
-    """Sequence-to-sequence model with attention and for multiple buckets.
-
-    This class implements a multi-layer recurrent neural network as encoder,
-    and an attention-based decoder. This is the same as the model described in
-    this paper: http://arxiv.org/abs/1412.7449 - please look there for details,
-    or into the seq2seq library for complete model implementation.
-    This class also allows to use GRU cells in addition to LSTM cells, and
-    sampled softmax to handle large output vocabulary size. A single-layer
-    version of this model, but with bi-directional encoder, was presented in
-      http://arxiv.org/abs/1409.0473
-    and sampled softmax is described in Section 3 of the following paper.
-      http://arxiv.org/abs/1412.2007
+    """
+    Sequence-to-sequence model with attention and for multiple buckets.
+    This class implements a single or multi-layer recurrent neural network as encoder, and an attention-based decoder.
+    This class also allows to use GRU cells in addition to LSTM cells.
     """
 
     def __init__(self, source_vocab_size, target_vocab_size, buckets,
@@ -72,26 +61,25 @@ class Seq2SeqModel(object):
         """Create the model.
 
         Args:
-          source_vocab_size: size of the source vocabulary.
-          target_vocab_size: size of the target vocabulary.
-          buckets: a list of pairs (I, O), where I specifies maximum input length
-            that will be processed in that bucket, and O specifies maximum output
-            length. Training instances that have inputs longer than I or outputs
-            longer than O will be pushed to the next bucket and padded accordingly.
-            We assume that the list is sorted, e.g., [(2, 4), (8, 16)].
-          #size: number of units in each layer of the model.#annotated by yfeng
-          hidden_edim: number of dimensions for word embedding
-          hidden_units: number of hidden units for each layer
-          num_layers: number of layers in the model.
-          max_gradient_norm: gradients will be clipped to maximally this norm.
-          batch_size: the size of the batches used during training;
-            the model construction is independent of batch_size, so it can be
-            changed after initialization if this is convenient, e.g., for decoding.
-          learning_rate: learning rate to start with.
-          learning_rate_decay_factor: decay learning rate by this much when needed.
-          use_lstm: if true, we use LSTM cells instead of GRU cells.
-          num_samples: number of samples for sampled softmax.
-          forward_only: if set, we do not construct the backward pass in the model.
+            source_vocab_size: size of the source vocabulary.
+            target_vocab_size: size of the target vocabulary.
+            buckets: a list of pairs (I, O), where I specifies maximum input length
+                that will be processed in that bucket, and O specifies maximum output
+                length. Training instances that have inputs longer than I or outputs
+                longer than O will be pushed to the next bucket and padded accordingly.
+                We assume that the list is sorted, e.g., [(2, 4), (8, 16)].
+            hidden_edim: number of dimensions for word embedding
+            hidden_units: number of hidden units for each layer
+            num_layers: number of layers in the model.
+            max_gradient_norm: gradients will be clipped to maximally this norm.
+            batch_size: the size of the batches used during training;
+                the model construction is independent of batch_size, so it can be
+                changed after initialization if this is convenient, e.g., for decoding.
+            learning_rate: learning rate to start with.
+            learning_rate_decay_factor: decay learning rate by this much when needed.
+            beam_size: the beam size used in beam search.
+            use_lstm: if true, we use LSTM cells instead of GRU cells.
+            forward_only: if set, we do not construct the backward pass in the model.
         """
         self.source_vocab_size = source_vocab_size
         self.target_vocab_size = target_vocab_size
@@ -101,8 +89,6 @@ class Seq2SeqModel(object):
         self.learning_rate_decay_op = self.learning_rate.assign(
                 self.learning_rate * learning_rate_decay_factor)
         self.global_step = tf.Variable(0, trainable=False)
-
-        softmax_loss_function = None
 
         def loss_function(logit, target, output_projection):
             logit = math_ops.matmul(logit, output_projection, transpose_b=True)
@@ -133,6 +119,7 @@ class Seq2SeqModel(object):
                     num_decoder_symbols=target_vocab_size,
                     embedding_size=hidden_edim,
                     beam_size=beam_size,
+                    num_layers=num_layers,
                     feed_previous=do_decode)
 
         # Feeds for inputs.
@@ -185,7 +172,7 @@ class Seq2SeqModel(object):
                     lambda x, y, z, s, a, b, c, d: seq2seq_f(x, y, z, s, a, b, c, d, False),
                     softmax_loss_function=softmax_loss_function)
 
-        # Gradients and SGD update operation for training the model.
+        # only update memory attention parameters
         params_to_update = [p for p in tf.trainable_variables() if p.name in [
             u'beta1_power:0', u'beta2_power:0',
             u'embedding_attention_seq2seq/embedding_attention_decoder/attention_decoder/attention/AttnVt_0:0',
@@ -215,6 +202,7 @@ class Seq2SeqModel(object):
                 self.updates.append(opt.apply_gradients(
                         zip(clipped_gradients, params_to_update), global_step=self.global_step))
 
+        # load trained NMT parameters
         params_to_load = [p for p in tf.all_variables() if p.name not in [
             u'beta1_power:0', u'beta2_power:0',
             u'embedding_attention_seq2seq/embedding_attention_decoder/attention_decoder/attention/AttnVt_0:0',
@@ -231,6 +219,7 @@ class Seq2SeqModel(object):
             u'embedding_attention_seq2seq/embedding_attention_decoder/attention_decoder/attention/AttnU_0/Linear_mem/Bias/Adam_1:0'
         ]]
 
+        # only save memory attention parameters
         params_to_save = [p for p in tf.all_variables() if p.name in [
             u'Variable:0', u'Variable_1:0',
             u'beta1_power:0', u'beta2_power:0',
@@ -255,15 +244,21 @@ class Seq2SeqModel(object):
                                     keep_checkpoint_every_n_hours=6)
 
     def step(self, session, encoder_inputs, encoder_mask, encoder_probs, encoder_ids, encoder_hs, mem_mask, decoder_inputs,
-             target_weights,
-             decoder_aligns, decoder_align_weights, bucket_id, forward_only):
+             target_weights, decoder_aligns, decoder_align_weights, bucket_id, forward_only):
         """Run a step of the model feeding the given inputs.
 
         Args:
           session: tensorflow session to use.
           encoder_inputs: list of numpy int vectors to feed as encoder inputs.
+          encoder_mask: a 2D numpy int matrix to feed as encoder mask.
+          encoder_probs: a 3D numpy float matrix to feed as encoder probs.
+          encoder_ids: a 2D numpy int matrix to feed as encoder ids.
+          encoder_hs: a 3D numpy float matrix to feed as encoder hs.
+          mem_mask: a 2D numpy int matrix to feed as mem mask.
           decoder_inputs: list of numpy int vectors to feed as decoder inputs.
           target_weights: list of numpy float vectors to feed as target weights.
+          decoder_aligns: list of numpy int vectors to feed as decoder aligns.
+          decoder_align_weights: list of numpy float vectors to feed as decoder_align_weights.
           bucket_id: which bucket of the model to use.
           forward_only: whether to do the backward step or only forward.
 
@@ -351,38 +346,35 @@ class Seq2SeqModel(object):
         # pad them if needed, reverse encoder inputs and add GO to decoder.
         for _ in xrange(self.batch_size):
             encoder_input, decoder_input = random.choice(data[bucket_id])
-
             # Encoder inputs are padded and then reversed.
             encoder_pad = [data_utils.PAD_ID] * (encoder_size - len(encoder_input))
             encoder_inputs.append(list(encoder_input + encoder_pad))
             encoder_mask.append([1] * len(encoder_input) + [0] * (encoder_size - len(encoder_input)))
-
             # Decoder inputs get an extra "GO" symbol, and are padded then.
             decoder_pad_size = decoder_size - len(decoder_input) - 1
-            decoder_inputs.append([data_utils.GO_ID] + decoder_input +
-                                  [data_utils.PAD_ID] * decoder_pad_size)
+            decoder_inputs.append([data_utils.GO_ID] + decoder_input + [data_utils.PAD_ID] * decoder_pad_size)
 
         # Now we create batch-major vectors from the data selected above.
         batch_encoder_inputs, batch_decoder_inputs, batch_weights = [], [], []
-        batch_decoder_aligns, batch_decoder_align_weights = [], []
         # Batch encoder inputs are just re-indexed encoder_inputs.
         for length_idx in xrange(encoder_size):
             batch_encoder_inputs.append(
                     np.array([encoder_inputs[batch_idx][length_idx]
                               for batch_idx in xrange(self.batch_size)], dtype=np.int32))
 
+        # The one-hot representations of each target word in memory. The memory will memorize at most 2*encoder_size target words.
         encoder_probs = np.zeros((self.batch_size, 2 * encoder_size, self.target_vocab_size), dtype=np.float32)
+        # The target word ids in memory.
         encoder_ids = np.zeros((self.batch_size, 2 * encoder_size,), dtype=np.int32)
+        # The mask of memory denoting padding positions in memory.
         mem_mask = np.zeros((self.batch_size, 2 * encoder_size,), dtype=np.float32)
+        # generate memory
         for batch_idx in xrange(self.batch_size):
-            id_set = set()
+            id_set = set()  # record the target ids in memory
             num = 0
-            # for id in [2]:
-            #     encoder_ids[batch_idx][num] = id
-            #     encoder_probs[batch_idx][num][id] = 1.0
-            #     num += 1
-            #     id_set.add(id)
             loop = 0
+            # add target words into memory via loop. In first loop, add the most possible target word of each source
+            # word in the source sentence; in the second loop, add the second possible target word, ...
             while num < 2 * encoder_size and loop < 5:
                 for length_idx in xrange(encoder_size):
                     sid = encoder_inputs[batch_idx][length_idx]
@@ -401,6 +393,8 @@ class Seq2SeqModel(object):
                             break
                 loop += 1
 
+        # The probabilities of target to source word mappings. If one target word was from two or more source words
+        # in the source sentence, we need to get the probabiblities.
         encoder_hs = np.zeros((self.batch_size, 2 * encoder_size, encoder_size), dtype=np.float32)
         for batch_idx in xrange(self.batch_size):
             for mid in xrange(2 * encoder_size):
@@ -431,6 +425,10 @@ class Seq2SeqModel(object):
                     batch_weight[batch_idx] = 0.0
             batch_weights.append(batch_weight)
 
+        # batch_decoder_aligns are the groundtruth alignments on memory
+        # batch_decoder_align_weights are the weights to train memory attention.
+        # If one target word is not in memory, and the alignment is zero, then the weight should be zero.
+        batch_decoder_aligns, batch_decoder_align_weights = [], []
         for length_idx in xrange(decoder_size):
             align = np.zeros((self.batch_size, 2 * encoder_size), dtype=np.float32)
             align_weight = np.ones((self.batch_size,), dtype=np.float32)

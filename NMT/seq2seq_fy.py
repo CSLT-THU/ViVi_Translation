@@ -27,7 +27,7 @@
 # limitations under the License.
 # ==============================================================================
 """
-Library for creating attention-based sequence-to-sequence models in TensorFlow.
+Library for creating an attention-based sequence-to-sequence model in TensorFlow.
 
 Here is an overview of functions available in this module.
 - embedding_attention_seq2seq: Advanced model with input embedding and
@@ -49,7 +49,6 @@ import tensorflow as tf
 from tensorflow.python.framework import dtypes
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import array_ops
-from tensorflow.python.ops import control_flow_ops
 from tensorflow.python.ops import embedding_ops
 from tensorflow.python.ops import math_ops
 from tensorflow.python.ops import nn_ops
@@ -60,6 +59,7 @@ import rnn_cell
 import rnn
 
 SEED = 123
+
 linear = rnn_cell._linear2  # pylint: disable=protected-access
 
 
@@ -115,7 +115,7 @@ def attention_decoder(encoder_mask, decoder_inputs, initial_state, attention_sta
         initial_state: 2D Tensor [batch_size x cell.state_size].
         attention_states: 3D Tensor [batch_size x attn_length x attn_size].
         cell: rnn_cell.RNNCell defining the cell function and size.
-        beam_size: Beam size used in beam search.
+        beam_size: Integer, the beam size used in beam search.
         output_size: Size of the output vectors; if None, we use cell.output_size.
         num_heads: Number of attention heads that read from attention_states.
         loop_function: If not None, this function will be applied to i-th output
@@ -292,7 +292,7 @@ def embedding_attention_decoder(encoder_mask, decoder_inputs, initial_state, att
         cell: rnn_cell.RNNCell defining the cell function.
         num_symbols: Integer, how many symbols come into the embedding.
         embedding_size: Integer, the length of the embedding vector for each symbol.
-        beam_size: Beam size used in beam search.
+        beam_size: Integer, the beam size used in beam search.
         num_heads: Number of attention heads that read from attention_states.
         output_size: Size of the output vectors; if None, use output_size.
         feed_previous: Boolean, if True, only the first of decoder_inputs will be
@@ -314,7 +314,7 @@ def embedding_attention_decoder(encoder_mask, decoder_inputs, initial_state, att
             symbols: A list of target word ids, the best results returned by beam search
 
     Raises:
-      ValueError: When output_projection has the wrong shape.
+        ValueError: When output_projection has the wrong shape.
     """
     if output_size is None:
         output_size = cell.output_size
@@ -338,14 +338,6 @@ def embedding_attention_seq2seq(encoder_inputs, encoder_mask, decoder_inputs, ce
                                 scope=None, initial_state_attention=True):
     """Embedding sequence-to-sequence model with attention.
 
-    This model first embeds encoder_inputs by a newly created embedding (of shape
-    [num_encoder_symbols x input_size]). Then it runs an RNN to encode
-    embedded encoder_inputs into a state vector. It keeps the outputs of this
-    RNN at every step to use for attention later. Next, it embeds decoder_inputs
-    by another newly created embedding (of shape [num_decoder_symbols x
-    input_size]). Then it runs attention decoder, initialized with the last
-    encoder state, on embedded decoder_inputs and attending to encoder outputs.
-
     Args:
         encoder_mask: The mask of input sentences denoting padding positions.
         encoder_inputs: A list of 1D int32 Tensors of shape [batch_size].
@@ -354,7 +346,7 @@ def embedding_attention_seq2seq(encoder_inputs, encoder_mask, decoder_inputs, ce
         num_encoder_symbols: Integer; number of symbols on the encoder side.
         num_decoder_symbols: Integer; number of symbols on the decoder side.
         embedding_size: Integer, the length of the embedding vector for each symbol.
-        beam_size:
+        beam_size: Integer, the beam size used in beam search.
         num_heads: Number of attention heads that read from attention_states.
         feed_previous: Boolean, if True, only the first of decoder_inputs will be used (the "GO" symbol).
         dtype: The dtype of the initial RNN state (default: tf.float32).
@@ -414,10 +406,10 @@ def sequence_loss_by_example(logits, targets, weights, softmax_loss_function, ou
         name: Optional name for this operation, default: "sequence_loss_by_example".
 
     Returns:
-      1D batch-sized float Tensor: The log-perplexity for each sequence.
+        1D batch-sized float Tensor: The log-perplexity for each sequence.
 
     Raises:
-      ValueError: If len(logits) is different from len(targets) or len(weights).
+        ValueError: If len(logits) is different from len(targets) or len(weights).
     """
     if len(targets) != len(logits) or len(weights) != len(logits):
         raise ValueError("Lengths of logits, weights, and targets must be the same "
@@ -452,10 +444,10 @@ def sequence_loss(logits, targets, weights, softmax_loss_function, output_projec
         name: Optional name for this operation, defaults to "sequence_loss".
 
     Returns:
-      A scalar float Tensor: The average log-perplexity per symbol (weighted).
+        A scalar float Tensor: The average log-perplexity per symbol (weighted).
 
     Raises:
-      ValueError: If len(logits) is different from len(targets) or len(weights).
+        ValueError: If len(logits) is different from len(targets) or len(weights).
     """
     with ops.op_scope(logits + targets + weights, name, "sequence_loss"):
         cost = math_ops.reduce_sum(sequence_loss_by_example(
@@ -492,7 +484,7 @@ def model_with_buckets(encoder_inputs, encoder_mask, decoder_inputs, targets, we
         name: Optional name for this operation, defaults to "model_with_buckets".
 
     Returns:
-        A tuple of the form (outputs, losses), where:
+        A tuple of the form (outputs, losses, symbols), where:
             outputs: The outputs for each bucket. Its j'th element consists of a list
                 of 2D Tensors of shape [batch_size x num_decoder_symbols] (jth outputs).
             losses: List of scalar Tensors, representing losses for each bucket, or,

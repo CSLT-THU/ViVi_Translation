@@ -26,19 +26,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Binary for training translation models and decoding from them.
+"""
+Binary for training translation models and decoding from them.
+Running this program without --decode will start training a model saving checkpoints to --train_dir.
+Running with --decode will start decoding the testing set using a trained model specified by --model.
 
-Running this program without --decode will download the WMT corpus into
-the directory specified as --data_dir and tokenize it in a very basic way,
-and then start training a model saving checkpoints to --train_dir.
-
-Running with --decode starts an interactive loop so you can see how
-the current checkpoint translates English sentences into French.
-
-See the following papers for more information on neural translation models.
- * http://arxiv.org/abs/1409.3215
- * http://arxiv.org/abs/1409.0473
- * http://arxiv.org/abs/1412.2007
+See the following paper for more information on memory-augmented neural machine translation model.
+ * https://arxiv.org/abs/1708.02005
+ * https://arxiv.org/abs/1706.08683
 """
 from __future__ import absolute_import
 from __future__ import division
@@ -87,10 +82,15 @@ tf.set_random_seed(123)
 
 # We use a number of buckets and pad to the closest one for efficiency.
 # See seq2seq_model.Seq2SeqModel for details of how they work.
-_buckets = [(10, 10), (20, 20), (30, 30), (40, 40), (51, 51)]
+if FLAGS.decode:
+    # add one more bucket for longer sentences in testing set
+    _buckets = [(10, 10), (20, 20), (30, 30), (40, 40), (50, 50), (100, 100)]
+else:
+    _buckets = [(10, 10), (20, 20), (30, 30), (40, 40), (50, 50)]
 
 
-def read_data(source_path, target_path, max_size=None):
+
+def read_data(source_path, target_path):
     """Read data from source and target files and put into buckets.
 
     Args:
@@ -98,8 +98,6 @@ def read_data(source_path, target_path, max_size=None):
       target_path: path to the file with token-ids for the target language;
         it must be aligned with the source file: n-th line contains the desired
         output for n-th line from the source_path.
-      max_size: maximum number of lines to read, all other will be ignored;
-        if 0 or None, data files will be read completely (no limit).
 
     Returns:
       data_set: a list of length len(_buckets); data_set[n] contains a list of
@@ -112,13 +110,13 @@ def read_data(source_path, target_path, max_size=None):
         with tf.gfile.GFile(target_path, mode="r") as target_file:
             source, target = source_file.readline(), target_file.readline()
             counter = 0
-            while source and target and (not max_size or counter < max_size):
+            while source and target:
                 counter += 1
                 if counter % 100000 == 0:
                     print("  reading data line %d" % counter)
                     sys.stdout.flush()
-                source_ids = [int(x) for x in source.split()][:51]
-                target_ids = [int(x) for x in target.split()][:51]
+                source_ids = [int(x) for x in source.split()]
+                target_ids = [int(x) for x in target.split()]
                 source_ids.append(data_utils.EOS_ID)
                 target_ids.append(data_utils.EOS_ID)
                 for bucket_id, (source_size, target_size) in enumerate(_buckets):
@@ -129,9 +127,7 @@ def read_data(source_path, target_path, max_size=None):
     return data_set
 
 
-def create_model(session,
-                 forward_only,
-                 ckpt_file=None, ckpt_file2=None):
+def create_model(session, forward_only, ckpt_file=None, ckpt_file2=None):
     """Create translation model and initialize or load parameters in session."""
     model = seq2seq_model.Seq2SeqModel(
             FLAGS.src_vocab_size, FLAGS.trg_vocab_size, _buckets,
@@ -147,6 +143,7 @@ def create_model(session,
             sys.stderr.flush()
             model.saver_old.restore(session, model_path)
             params = tf.all_variables()
+            # only initialize memory attention parameters.
             params = [p for p in params if p.name in
                       [
                           u'Variable:0', u'Variable_1:0',
@@ -217,7 +214,7 @@ def train():
         print("Reading development and training data (limit: %d)."
               % FLAGS.max_train_data_size)
         dev_set = read_data(src_dev, trg_dev)
-        train_set = read_data(src_train, trg_train, FLAGS.max_train_data_size)
+        train_set = read_data(src_train, trg_train)
         train_bucket_sizes = [len(train_set[b]) for b in xrange(len(_buckets))]
         train_total_size = float(sum(train_bucket_sizes))
 
@@ -276,7 +273,7 @@ def train():
                     encoder_inputs, encoder_mask, encoder_probs, encoder_ids, encoder_hs, mem_mask, decoder_inputs, \
                     target_weights, decoder_aligns, decoder_align_weights = model.get_batch(
                             dev_set, bucket_id, mems2t, memt2s)
-                    _, eval_loss, _, aligns = model.step(sess, encoder_inputs, encoder_mask, encoder_probs, encoder_ids,
+                    _, eval_loss, _ = model.step(sess, encoder_inputs, encoder_mask, encoder_probs, encoder_ids,
                                                          encoder_hs, mem_mask, decoder_inputs,
                                                          target_weights, decoder_aligns, decoder_align_weights,
                                                          bucket_id, True)
@@ -313,27 +310,19 @@ def decode():
         model.batch_size = 1  # We decode one sentence at a time.
 
         sentence = sys.stdin.readline()
-        # f = open("data2/test.all", 'r')
-        # line = f.readline()
         while sentence:
-            # Get token-ids for the input sentence.
-            # ssen, tsen = line.strip().split("|||")
             token_ids = data_utils.sentence_to_token_ids(tf.compat.as_bytes(sentence), src_vocab)
             token_ids.append(data_utils.EOS_ID)
-            # target_ids = data_utils.sentence_to_token_ids(tf.compat.as_bytes(tsen), fr_vocab)
-            # target_ids.append(data_utils.EOS_ID)
             # Which bucket does it belong to?
-            bucket_id = min([b for b in xrange(len(_buckets))
-                             if _buckets[b][0] > len(token_ids)])
+            bucket_id = min([b for b in xrange(len(_buckets)) if _buckets[b][0] > len(token_ids)])
             # Get a 1-element batch to feed the sentence to the model.
             encoder_inputs, encoder_mask, encoder_probs, encoder_ids, encoder_hs, mem_mask, decoder_inputs, \
             target_weights, decoder_aligns, decoder_align_weights = model.get_batch(
                     {bucket_id: [(token_ids, [])]}, bucket_id, mems2t, memt2s)
             # Get output logits for the sentence.
-            _, _, output_logits, aligns = model.step(sess, encoder_inputs, encoder_mask, encoder_probs, encoder_ids,
+            _, _, output_logits = model.step(sess, encoder_inputs, encoder_mask, encoder_probs, encoder_ids,
                                                      encoder_hs, mem_mask, decoder_inputs, target_weights, decoder_aligns,
                                                      decoder_align_weights, bucket_id, True)
-
 
             # This is a beam search decoder - output is the best result from beam search
             outputs = [int(logit) for logit in output_logits]
