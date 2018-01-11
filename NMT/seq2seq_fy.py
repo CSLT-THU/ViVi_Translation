@@ -226,6 +226,7 @@ def attention_decoder(encoder_mask, decoder_inputs, initial_state, attention_sta
                 with variable_scope.variable_scope("loop_function", reuse=True):
                     inp, prev_probs, index, prev_symbol = loop_function(prev, prev_probs, beam_size, i)
                     out_state = array_ops.gather(out_state, index)  # update prev state
+                    state = array_ops.gather(state, index)  # update prev state
                     attns = [array_ops.gather(attn, index) for attn in attns]  # update prev attens
                     for j, output in enumerate(outputs):
                         outputs[j] = array_ops.gather(output, index)  # update prev outputs
@@ -260,6 +261,7 @@ def attention_decoder(encoder_mask, decoder_inputs, initial_state, attention_sta
             # process the last symbol
             inp, prev_probs, index, prev_symbol = loop_function(prev, prev_probs, beam_size, i + 1)
             out_state = array_ops.gather(out_state, index)  # update prev state
+            state = array_ops.gather(state, index)  # update prev state
             for j, output in enumerate(outputs):
                 outputs[j] = array_ops.gather(output, index)  # update prev outputs
             for j, symbol in enumerate(symbols):
@@ -270,6 +272,7 @@ def attention_decoder(encoder_mask, decoder_inputs, initial_state, attention_sta
             for k, symbol in enumerate(symbols):
                 symbols[k] = array_ops.gather(symbol, 0)
             out_state = array_ops.expand_dims(array_ops.gather(out_state, 0), 0)
+            state = array_ops.expand_dims(array_ops.gather(state, 0), 0)
             state = array_ops.expand_dims(array_ops.gather(state, 0), 0)
             for j, output in enumerate(outputs):
                 outputs[j] = array_ops.expand_dims(array_ops.gather(output, 0), 0)  # update prev outputs

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 read -p "Please input model type (nmt or mnmt)：" model
-if [ $model != "nmt" and $model != "mnmt" ]
+if [ $model != "nmt" ] && [ $model != "mnmt" ]
 then
     echo "Wrong input!"
 else
     read -p "Please input operation type (train or test)：" operation
-    if [ $operation != "test" and $operation != "train" ]
+    if [ $operation != "test" ] && [ $operation != "train" ]
     then
         echo "Wrong input!"
     else

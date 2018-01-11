@@ -73,15 +73,17 @@ sh prepare.sh
 
 Train a NMT model:
 ```
-sh run.sh nmt train
+$ sh run.sh 
+Please input model type (nmt or mnmt)：nmt
+Please input operation type (train or test)：train
 ```
 
 Test a trained NMT model:
 ```
-sh run.sh nmt test
+$ sh run.sh 
+Please input model type (nmt or mnmt)：nmt
+Please input operation type (train or test)：test
 
-[zhangsy@wolf08 ViVi_Translation]$ sh run.sh nmt test
-Testing a NMT checkpoint 'translate.ckpt-nmt'...
 .......
 Reading model parameters from ./train/translate.ckpt-nmt
 I tensorflow/core/common_runtime/gpu/pool_allocator.cc:244] PoolAllocator: After 41295 get requests, put_count=41280 evicted_count=1000 eviction_rate=0.0242248 and unsatisfied allocation rate=0.0270008
@@ -91,15 +93,17 @@ BLEU = 35.24, 57.7/39.8/31.9/27.0 (BP=0.939, ratio=0.941, hyp_len=14535, ref_len
 
 Train a MNMT model:
 ```
-sh run.sh mnmt train
+$ sh run.sh 
+Please input model type (nmt or mnmt)：mnmt
+Please input operation type (train or test)：train
 ```
 
 Test a trained MNMT model:
 ```
-sh run.sh mnmt test
+$ sh run.sh 
+Please input model type (nmt or mnmt)：mnmt
+Please input operation type (train or test)：test
 
-[zhangsy@wolf08 ViVi_Translation]$ sh run.sh mnmt test
-Testing a MNMT checkpoint 'translate.ckpt-mnmt'...
 ......
 Reading model parameters from ./train_mem/translate.ckpt-nmt and ./train_mem/translate.ckpt-mnmt
 I tensorflow/core/common_runtime/gpu/pool_allocator.cc:244] PoolAllocator: After 46089 get requests, put_count=46012 evicted_count=1000 eviction_rate=0.0217335 and unsatisfied allocation rate=0.0255375
