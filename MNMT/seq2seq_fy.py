@@ -138,13 +138,14 @@ def attention_decoder(encoder_mask, decoder_inputs, encoder_embeds, encoder_prob
             stored decoder state and attention states.
 
     Returns:
-         A tuple of the form (outputs, state, symbols, aligns_mem), where:
+         A tuple of the form (outputs, state, symbols, logits_mem, aligns_mem), where:
             outputs: A list of the same length as decoder_inputs of 2D Tensors of
                   shape [batch_size x output_size].
             state: The state of each decoder cell the final time-step.
                 It is a 2D Tensor of shape [batch_size x cell.state_size].
             symbols: A list of target word ids, the best results returned by beam search.
             aligns_mem: A list of memory attention weights.
+            logits_mem: A list of [batch_size x target_vocab_size].
 
     Raises:
       ValueError: when num_heads is not positive, there are no inputs, shapes
@@ -166,6 +167,7 @@ def attention_decoder(encoder_mask, decoder_inputs, encoder_embeds, encoder_prob
         attn_length = attention_states.get_shape()[1].value
         attn_size = attention_states.get_shape()[2].value
         embed_size = encoder_embeds.get_shape()[2].value
+        state_size = initial_state.get_shape()[1].value
 
         hidden = array_ops.reshape(attention_states, [-1, attn_length, 1, attn_size])
 
@@ -183,7 +185,7 @@ def attention_decoder(encoder_mask, decoder_inputs, encoder_embeds, encoder_prob
         attention_vec_size = attn_size // 2  # Size of query vectors for attention.
 
         initial_state = math_ops.tanh(
-                linear(initial_state, attention_vec_size, False,
+                linear(initial_state, state_size, False,
                        weight_initializer=init_ops.random_normal_initializer(0, 0.01, seed=SEED)))
 
         def attention(query, scope=None):
@@ -268,6 +270,7 @@ def attention_decoder(encoder_mask, decoder_inputs, encoder_embeds, encoder_prob
         aligns_mem = []
         output = None
         state = initial_state
+        out_state = array_ops.split(1, num_layers, state)[-1]
         prev = None
         prev_d_mem = None
         symbols = []
@@ -284,6 +287,7 @@ def attention_decoder(encoder_mask, decoder_inputs, encoder_embeds, encoder_prob
             if loop_function is not None and prev is not None:
                 with variable_scope.variable_scope("loop_function", reuse=True):
                     inp, prev_probs, index, prev_symbol = loop_function(prev, prev_probs, beam_size, prev_d_mem, i)
+                    out_state = array_ops.gather(out_state, index)  # update prev state
                     state = array_ops.gather(state, index)  # update prev state
                     attns = [array_ops.gather(attn, index) for attn in attns]  # update prev attens
                     for j, output in enumerate(outputs):
@@ -303,18 +307,18 @@ def attention_decoder(encoder_mask, decoder_inputs, encoder_embeds, encoder_prob
 
             # Run the attention mechanism.
             if i > 0 or (i == 0 and initial_state_attention):
-                attns, aa = attention(state, scope="attention")
-                query = array_ops.concat(1, [state, inp])
+                attns, aa = attention(out_state, scope="attention")
+                query = array_ops.concat(1, [out_state, inp])
                 logit_mem, align_mem = attention_mem(query, scope="attention")
                 logits_mem.append(logit_mem[0])
                 aligns_mem.append(align_mem[0])
 
             # Run the RNN.
             cinp = array_ops.concat(1, [inp, attns[0]])
-            state, _ = cell(cinp, state)
+            out_state, state = cell(cinp, state)
 
             with variable_scope.variable_scope("AttnOutputProjection"):
-                output = linear([state] + [cinp], output_size, False)
+                output = linear([out_state] + [cinp], output_size, False)
                 output = array_ops.reshape(output, [-1, output_size // 2, 2])
                 output = math_ops.reduce_max(output, 2)  # maxout
 
@@ -326,6 +330,7 @@ def attention_decoder(encoder_mask, decoder_inputs, encoder_embeds, encoder_prob
         if loop_function is not None:
             # process the last symbol
             inp, prev_probs, index, prev_symbol = loop_function(prev, prev_probs, beam_size, prev_d_mem, i + 1)
+            out_state = array_ops.gather(out_state, index)  # update prev state
             state = array_ops.gather(state, index)  # update prev state
             for j, output in enumerate(outputs):
                 outputs[j] = array_ops.gather(output, index)  # update prev outputs
@@ -340,6 +345,7 @@ def attention_decoder(encoder_mask, decoder_inputs, encoder_embeds, encoder_prob
             # output the final best result of beam search
             for k, symbol in enumerate(symbols):
                 symbols[k] = array_ops.gather(symbol, 0)
+            out_state = array_ops.expand_dims(array_ops.gather(out_state, 0), 0)
             state = array_ops.expand_dims(array_ops.gather(state, 0), 0)
             for j, output in enumerate(outputs):
                 outputs[j] = array_ops.expand_dims(array_ops.gather(output, 0), 0)  # update prev outputs
@@ -347,12 +353,12 @@ def attention_decoder(encoder_mask, decoder_inputs, encoder_embeds, encoder_prob
                 logits_mem[k] = array_ops.expand_dims(array_ops.gather(logit_mem, 0), 0)
             for k, align_mem in enumerate(aligns_mem):
                 aligns_mem[k] = array_ops.expand_dims(array_ops.gather(align_mem, 0), 0)
-    return outputs, state, symbols, aligns_mem
+    return outputs, state, symbols, logits_mem, aligns_mem
 
 
 def embedding_attention_decoder(encoder_mask, encoder_probs, encoder_ids, encoder_hs, mem_mask,
                                 decoder_inputs, initial_state, attention_states,
-                                cell, num_symbols, embedding_size, beam_size, num_heads=1,
+                                cell, num_symbols, embedding_size, beam_size, num_heads=1, num_layers=1,
                                 output_size=None, output_projection=None, feed_previous=False,
                                 update_embedding_for_previous=True,
                                 dtype=dtypes.float32, scope=None,
@@ -385,12 +391,13 @@ def embedding_attention_decoder(encoder_mask, encoder_probs, encoder_ids, encode
             stored decoder state and attention states.
 
     Returns:
-        A tuple of the form (outputs, state, symbols, aligns_mem), where:
+        A tuple of the form (outputs, state, symbols, logits_mem, aligns_mem), where:
             outputs: A list of the same length as decoder_inputs of 2D Tensors of
                   shape [batch_size x output_size].
             state: The state of each decoder cell the final time-step.
                 It is a 2D Tensor of shape [batch_size x cell.state_size].
             symbols: A list of target word ids, the best results returned by beam search.
+            logits_mem: A list of [batch_size x target_vocab_size].
             aligns_mem: A list of memory attention weights.
 
     Raises:
@@ -415,13 +422,13 @@ def embedding_attention_decoder(encoder_mask, encoder_probs, encoder_ids, encode
         return attention_decoder(encoder_mask, emb_inp, encoder_embs, encoder_probs,
                                  encoder_hs, mem_mask, initial_state, attention_states, cell,
                                  beam_size, output_size=output_size,
-                                 num_heads=num_heads, loop_function=loop_function,
+                                 num_heads=num_heads, num_layers=num_layers, loop_function=loop_function,
                                  initial_state_attention=initial_state_attention), tf.identity(embedding)
 
 
 def embedding_attention_seq2seq(encoder_inputs, encoder_mask, encoder_probs, encoder_ids, encoder_hs, mem_mask,
                                 decoder_inputs, cell, num_encoder_symbols, num_decoder_symbols, embedding_size,
-                                beam_size, num_heads=1, output_projection=None,
+                                beam_size, num_heads=1, num_layers=1, output_projection=None,
                                 feed_previous=False, dtype=dtypes.float32, scope=None,
                                 initial_state_attention=True):
     """Embedding sequence-to-sequence model with attention.
@@ -448,13 +455,15 @@ def embedding_attention_seq2seq(encoder_inputs, encoder_mask, encoder_probs, enc
             states.
 
     Returns:
-        A tuple of the form (outputs, state, symbols, aligns_mem), where:
+        A tuple of the form (outputs, state, symbols, logits_mem, aligns_mem), where:
             outputs: A list of the same length as decoder_inputs of 2D Tensors of
                   shape [batch_size x output_size].
             state: The state of each decoder cell the final time-step.
                 It is a 2D Tensor of shape [batch_size x cell.state_size].
             symbols: A list of target word ids, the best results returned by beam search.
+            logits_mem: A list of [batch_size x target_vocab_size].
             aligns_mem: A list of memory attention weights.
+
     """
     with variable_scope.variable_scope(scope or "embedding_attention_seq2seq"):
         embedding = variable_scope.get_variable(
@@ -482,7 +491,7 @@ def embedding_attention_seq2seq(encoder_inputs, encoder_mask, encoder_probs, enc
         return embedding_attention_decoder(encoder_mask, encoder_probs, encoder_ids, encoder_hs, mem_mask,
                                            decoder_inputs, encoder_state, attention_states, cell,
                                            num_decoder_symbols, embedding_size, beam_size=beam_size,
-                                           num_heads=num_heads, output_size=output_size,
+                                           num_heads=num_heads, num_layers=num_layers, output_size=output_size,
                                            output_projection=output_projection,
                                            feed_previous=feed_previous,
                                            initial_state_attention=initial_state_attention)
@@ -634,7 +643,7 @@ def model_with_buckets(encoder_inputs, encoder_mask, encoder_probs, encoder_ids,
                                                reuse=True if j > 0 else None):
                 (bucket_outputs, _, bucket_symbols, bucket_logits_mem, bucket_aligns_mem), output_projection =\
                     seq2seq(encoder_inputs[:bucket[0]], encoder_mask, encoder_probs,
-                            encoder_ids, encoder_hs, mem_mask, decoder_inputs[:bucket[1]], decoder_aligns[:bucket[1]])
+                            encoder_ids, encoder_hs, mem_mask, decoder_inputs[:bucket[1]])
                 outputs.append(bucket_outputs)
                 symbols.append(bucket_symbols)
                 if per_example_loss:

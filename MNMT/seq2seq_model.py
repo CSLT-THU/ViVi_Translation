@@ -111,10 +111,10 @@ class Seq2SeqModel(object):
 
         # The seq2seq function: we use embedding for the input and attention.
         def seq2seq_f(encoder_inputs, encoder_mask, encoder_probs, encoder_ids, encoder_hs, mem_mask, decoder_inputs,
-                      decoder_aligns, do_decode):
+                      do_decode):
             return seq2seq_fy.embedding_attention_seq2seq(
-                    encoder_inputs, encoder_mask, encoder_probs, encoder_ids, encoder_hs, mem_mask, decoder_inputs,
-                    decoder_aligns, cell,
+                    encoder_inputs, encoder_mask, encoder_probs, encoder_ids,
+                    encoder_hs, mem_mask, decoder_inputs, cell,
                     num_encoder_symbols=source_vocab_size,
                     num_decoder_symbols=target_vocab_size,
                     embedding_size=hidden_edim,
@@ -158,18 +158,18 @@ class Seq2SeqModel(object):
 
         # Training outputs and losses.
         if forward_only:
-            self.outputs, self.losses, self.symbols, self.aligns_mem = seq2seq_fy.model_with_buckets(
+            self.outputs, self.losses, self.symbols = seq2seq_fy.model_with_buckets(
                     self.encoder_inputs, self.encoder_mask, self.encoder_probs, self.encoder_ids, self.encoder_hs,
                     self.mem_mask, self.decoder_inputs, targets,
                     self.target_weights, self.decoder_aligns, self.decoder_align_weights, buckets,
-                    lambda x, y, z, s, a, b, c, d: seq2seq_f(x, y, z, s, a, b, c, d, True),
+                    lambda x, y, z, s, a, b, c : seq2seq_f(x, y, z, s, a, b, c, True),
                     softmax_loss_function=softmax_loss_function)
         else:
-            self.outputs, self.losses, self.symbols, self.aligns_mem = seq2seq_fy.model_with_buckets(
+            self.outputs, self.losses, self.symbols = seq2seq_fy.model_with_buckets(
                     self.encoder_inputs, self.encoder_mask, self.encoder_probs, self.encoder_ids, self.encoder_hs,
                     self.mem_mask, self.decoder_inputs, targets,
                     self.target_weights, self.decoder_aligns, self.decoder_align_weights, buckets,
-                    lambda x, y, z, s, a, b, c, d: seq2seq_f(x, y, z, s, a, b, c, d, False),
+                    lambda x, y, z, s, a, b, c : seq2seq_f(x, y, z, s, a, b, c, False),
                     softmax_loss_function=softmax_loss_function)
 
         # only update memory attention parameters
@@ -314,13 +314,12 @@ class Seq2SeqModel(object):
             else:
                 for l in xrange(decoder_size):  # Output logits.
                     output_feed.append(self.outputs[bucket_id][l])
-            output_feed.append(self.aligns_mem[bucket_id])
 
         outputs = session.run(output_feed, input_feed)
         if not forward_only:
             return outputs[1], outputs[2], None  # Gradient norm, loss, no outputs.
         else:
-            return None, outputs[0], outputs[1:-1], outputs[-1]  # No gradient norm, loss, outputs.
+            return None, outputs[0], outputs[1:]  # No gradient norm, loss, outputs.
 
     def get_batch(self, data, bucket_id, mems2t, memt2s):
         """Get a random batch of data from the specified bucket, prepare for step.

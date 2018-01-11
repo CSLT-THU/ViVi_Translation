@@ -211,8 +211,6 @@ def train():
         model = create_model(sess, False, FLAGS.model, FLAGS.model2)
 
         # Read data into buckets and compute their sizes.
-        print("Reading development and training data (limit: %d)."
-              % FLAGS.max_train_data_size)
         dev_set = read_data(src_dev, trg_dev)
         train_set = read_data(src_train, trg_train)
         train_bucket_sizes = [len(train_set[b]) for b in xrange(len(_buckets))]
@@ -274,9 +272,8 @@ def train():
                     target_weights, decoder_aligns, decoder_align_weights = model.get_batch(
                             dev_set, bucket_id, mems2t, memt2s)
                     _, eval_loss, _ = model.step(sess, encoder_inputs, encoder_mask, encoder_probs, encoder_ids,
-                                                         encoder_hs, mem_mask, decoder_inputs,
-                                                         target_weights, decoder_aligns, decoder_align_weights,
-                                                         bucket_id, True)
+                                                 encoder_hs, mem_mask, decoder_inputs, target_weights, decoder_aligns,
+                                                 decoder_align_weights, bucket_id, True)
                     eval_ppx = math.exp(eval_loss) if eval_loss < 300 else float('inf')
                     print("  eval: bucket %d perplexity %.2f" % (bucket_id, eval_ppx))  # annotated by yfeng
                 sys.stdout.flush()
@@ -321,8 +318,8 @@ def decode():
                     {bucket_id: [(token_ids, [])]}, bucket_id, mems2t, memt2s)
             # Get output logits for the sentence.
             _, _, output_logits = model.step(sess, encoder_inputs, encoder_mask, encoder_probs, encoder_ids,
-                                                     encoder_hs, mem_mask, decoder_inputs, target_weights, decoder_aligns,
-                                                     decoder_align_weights, bucket_id, True)
+                                             encoder_hs, mem_mask, decoder_inputs, target_weights, decoder_aligns,
+                                             decoder_align_weights, bucket_id, True)
 
             # This is a beam search decoder - output is the best result from beam search
             outputs = [int(logit) for logit in output_logits]
