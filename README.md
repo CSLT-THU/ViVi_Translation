@@ -62,6 +62,8 @@ I tensorflow/stream_executor/dso_loader.cc:108] successfully opened CUDA library
 ```
 
 ### Quick Start
+Make sure you have finished the installations.
+
 Prepare:
 ```
 git clone https://github.com/CSLT-THU/ViVi_Translation.git
@@ -230,6 +232,11 @@ Each item in the map is "source word id: probablity". The probability is the pro
 Note that "mems2t.pkl" and "memt2s.pkl" do not need to be generated from training set and alignments. 
 It can be derived from any source-to-target dictionary. 
 As long as these two files were formatted according to the descriptions above, our model could perform correctly.
+
+### Additional
+Note that, in this repos, our NMT model is slightly different from RNNsearch, we use the target word embedding as the out-projection matrix. 
+
+We have another repos [ViVi_NMT](https://github.com/CSLT-THU/CSLT_NMT) which did not have this change, and it was updated to Tensorflow 1.0. 
 
 ## License
 Open source licensing is under the Apache License 2.0, which allows free use for research purposes. 
